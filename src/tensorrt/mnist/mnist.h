@@ -26,31 +26,33 @@ using samplesCommon::InferDeleter;
 
 template<typename T>
 using uniptr = unique_ptr<T, InferDeleter>;
+using wtsmap = map<string, nvinfer1::Weights>;
 
 
-class MNISTParams
+struct MNISTParams
 {
     int inh, inw;
     int outsize;
     bool fp16, int8;
     string weightfile;
     string meansproto;
+    vector<string> innames;
+    vector<string> outnames;
+    int batchsize, dlacore;
 };
 
 
 class ScratchMNIST
 {
-    using wtsmap = map<string, nvinfer1::Weights>;
-
 public:
-    ScratchMNIST(const MNISTParams& params);
+    explicit ScratchMNIST(const MNISTParams& params);
     bool build();
     bool infer();
 
 protected:
-    bool loadWeights(const string& filepath);
-    bool processInput(const BufferManager& buffers);
-    bool validateOutput(const BufferManager& buffers);
+    static wtsmap loadweights(const string& filepath);
+    bool preprocess(const BufferManager& buffers);
+    bool postprocess(const BufferManager& buffers);
 
 private:
     MNISTParams params;

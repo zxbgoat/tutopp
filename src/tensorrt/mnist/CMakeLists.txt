@@ -9,4 +9,5 @@ link_directories(/usr/local/cuda/lib64)
 
 add_library(scratch SHARED mnist_scratch.cpp)
 add_library(plugin SHARED mnist_plugin.cpp)
+add_library(onnx SHARED mnist_onnx.cpp)
 add_executable(mnist mnist.cpp)
