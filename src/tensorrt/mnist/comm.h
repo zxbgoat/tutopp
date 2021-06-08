@@ -52,6 +52,9 @@ using nvinfer1::IBuilderConfig;
 using nvinfer1::ICudaEngine;
 using nvinfer1::IExecutionContext;
 
+using nvcaffeparser1::ICaffeParser;
+using nvcaffeparser1::IBinaryProtoBlob;
+
 using cmdparser = cmdline::parser;
 
 template<typename T>

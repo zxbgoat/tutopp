@@ -33,7 +33,7 @@ ostream& operator<<(ostream& out, MNISTParams& params)
     out << "               use int8 | " << params.int8           << endl;
     out << "               use fp16 | " << params.fp16           << endl;
     out << "            weight file | " << params.weightfile     << endl;
-    out << "            means proto | " << params.meansproto     << endl;
+    out << "            means proto | " << params.meanfile       << endl;
     out << "             batch size | " << params.batchsize      << endl;
     out << "               dla core | " << params.dlacore        << endl;
     out << "             input name | " << params.inname         << endl;

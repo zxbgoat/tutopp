@@ -12,7 +12,8 @@ MNISTParams initparams(const cmdparser& parser)
     params.applic = parser.get<string>("app");
     params.datadir = parser.get<string>("data");
     params.weightfile = parser.get<string>("wts");
-    params.meansproto = parser.get<string>("proto");
+    params.protocfile = parser.get<string>("proto");
+    params.meanfile = parser.get<string>("mean");
     params.inname = "Input3";
     params.outname = "Plus214_Output_0";
     params.batchsize = parser.get<int>("batch");
@@ -32,7 +33,8 @@ int main(int argc, char** argv)
     parser.add<string>("app", 'a', "app name", false, "dynashape");
     parser.add<string>("data", 'd', "data dir", false, "data/mnist");
     parser.add<string>("wts", 't', "weights file", false, "mnist.onnx");
-    parser.add<string>("proto", 'p', "means proto", false, "");
+    parser.add<string>("proto", 'p', "prototxt file", false, "");
+    parser.add<string>("mean", 'm', "mean file", false, "");
     parser.add<int>("out", 'o', "output size", false, 0);
     parser.add<int>("inw", 'w', "input width", false, 28);
     parser.add<int>("inh", 'h', "input height", false, 28);

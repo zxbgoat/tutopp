@@ -14,7 +14,8 @@ struct MNISTParams
     int outsize;
     bool fp16, int8;
     string weightfile;
-    string meansproto;
+    string protocfile;
+    string meanfile;
     string inname;
     string outname;
     int batchsize, dlacore;
@@ -38,7 +39,7 @@ private:
     MNISTParams params;
     int number;
     wtsmap weights;
-    shared_ptr<nvinfer1::ICudaEngine> engine;
+    shared_ptr<ICudaEngine> engine;
 
 };
 
@@ -49,15 +50,17 @@ public:
     PluginMNIST(const MNISTParams& params);
     bool build();
     bool infer();
+    bool teardown();
 
 protected:
-    bool preprocess();
-    bool postprocess();
+    void constructNetwork(uniptr<IBuilder>& builder, uniptr<ICaffeParser>& parser, uniptr<INetworkDefinition>& network);
+    bool processInput(const BufferManager& buffers, const string& inputTensorName, int inputFileIdx) const;
+    bool verifyOutput(const BufferManager& buffers, const string& outputTensorName, int groundTruthDigit) const;
 
 private:
-    shared_ptr<nvinfer1::ICudaEngine> engine;
+    shared_ptr<ICudaEngine> engine{nullptr};
     MNISTParams params;
-    uniptr<nvcaffeparser1::IBinaryProtoBlob> meanblob;
+    uniptr<IBinaryProtoBlob> meanblob;
     nvinfer1::Dims indims;
 };
 
