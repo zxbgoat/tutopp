@@ -26,14 +26,32 @@ using std::map;
 using std::endl;
 using std::cout;
 using std::string;
+using std::ifstream;
 using std::unique_ptr;
 using std::shared_ptr;
-using std::ifstream;
 using std::initializer_list;
+using std::random_device;
+using std::default_random_engine;
+using std::uniform_int_distribution;
+using std::transform;
+using std::fixed;
+using std::setw;
+using std::setprecision;
+using std::floor;
+using std::max_element;
+using std::move;
 
 using samplesCommon::BufferManager;
 using samplesCommon::InferDeleter;
 using samplesCommon::OnnxSampleParams;
+
+using nvinfer1::IBuilder;
+using nvinfer1::createInferBuilder;
+using nvinfer1::INetworkDefinition;
+using nvinfer1::IBuilderConfig;
+using nvinfer1::ICudaEngine;
+using nvinfer1::IExecutionContext;
+
 using cmdparser = cmdline::parser;
 
 template<typename T>

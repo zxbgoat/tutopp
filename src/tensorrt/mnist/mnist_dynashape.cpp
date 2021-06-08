@@ -3,55 +3,62 @@
 //
 
 
+#include <utility>
+
 #include "util.h"
 #include "mnist.h"
 
 
+DynamicReshape::DynamicReshape(MNISTParams params) { this->params = move(params); }
+
+
 bool DynamicReshape::build()
 {
-    auto builder = makeunique(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
-    buildPreprocessorEngine(builder);
-    buildPredictionEngine(builder);
+    auto builder = uniptr<IBuilder>(createInferBuilder(gLogger.getTRTLogger()));
+    buildpred(builder);
+    buildproc(builder);
     return true;
 }
 
 
-bool DynamicReshape::buildPreprocessorEngine(const uniptr<nvinfer1::IBuilder>& builder)
+bool DynamicReshape::buildproc(const uniptr<nvinfer1::IBuilder>& builder)
 {
-    auto preprocessorNetwork = makeunique(builder->createNetworkV2(1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH)));
+    const auto explibatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+    auto network = uniptr<INetworkDefinition>(builder->createNetworkV2(explibatch));
     // Reshape a dynamically shaped input to the size expected by the model, (1, 1, 28, 28).
-    auto input = preprocessorNetwork->addInput("input", nvinfer1::DataType::kFLOAT, Dims4{1, 1, -1, -1});
-    auto resizeLayer = preprocessorNetwork->addResize(*input);
-    resizeLayer->setOutputDimensions(mPredictionInputDims);
-    preprocessorNetwork->markOutput(*resizeLayer->getOutput(0));
+    Dims4 dims{1, 1, -1, -1};
+    auto input = network->addInput("input", nvinfer1::DataType::kFLOAT, dims);
+    auto resize = network->addResize(*input);
+    resize->setOutputDimensions(predindims);
+    network->markOutput(*resize->getOutput(0));
     // Finally, configure and build the preprocessor engine.
-    auto preprocessorConfig = makeunique(builder->createBuilderConfig());
+    auto config = uniptr<IBuilderConfig>(builder->createBuilderConfig());
     // Create an optimization profile so that we can specify a range of input dimensions.
     auto profile = builder->createOptimizationProfile();
-    // This profile will be valid for all images whose size falls in the range of [(1, 1, 1, 1), (1, 1, 56, 56)]
-    // but TensorRT will optimize for (1, 1, 28, 28)
+    // This profile will be valid for all images whose size falls in the range of
+    // [(1, 1, 1, 1), (1, 1, 56, 56)] but TensorRT will optimize for (1, 1, 28, 28)
     profile->setDimensions(input->getName(), OptProfileSelector::kMIN, Dims4{1, 1, 1, 1});
     profile->setDimensions(input->getName(), OptProfileSelector::kOPT, Dims4{1, 1, 28, 28});
     profile->setDimensions(input->getName(), OptProfileSelector::kMAX, Dims4{1, 1, 56, 56});
-    preprocessorConfig->addOptimizationProfile(profile);
-    mPreprocessorEngine = makeunique(builder->buildEngineWithConfig(*preprocessorNetwork, *preprocessorConfig));
+    config->addOptimizationProfile(profile);
+    procengine = uniptr<ICudaEngine>(builder->buildEngineWithConfig(*network, *config));
     gLogInfo << "Profile dimensions in preprocessor engine:" << endl;
-    gLogInfo << "    Minimum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMIN) << endl;
-    gLogInfo << "    Optimum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kOPT) << endl;
-    gLogInfo << "    Maximum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMAX) << endl;
+    gLogInfo << "    Minimum = " << procengine->getProfileDimensions(0, 0, OptProfileSelector::kMIN) << endl;
+    gLogInfo << "    Optimum = " << procengine->getProfileDimensions(0, 0, OptProfileSelector::kOPT) << endl;
+    gLogInfo << "    Maximum = " << procengine->getProfileDimensions(0, 0, OptProfileSelector::kMAX) << endl;
     return true;
 }
 
 
-bool DynamicReshape::buildPredictionEngine(const uniptr<nvinfer1::IBuilder>& builder)
+bool DynamicReshape::buildpred(const uniptr<IBuilder> &builder)
 {
     // Create a network using the parser.
-    const auto explicitBatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-    auto network = makeunique(builder->createNetworkV2(explicitBatch));
+    const auto explibatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+    auto network = uniptr<INetworkDefinition>(builder->createNetworkV2(explibatch));
     auto parser = nvonnxparser::createParser(*network, gLogger.getTRTLogger());
     string wtspath = joinpath({params.datadir, params.weightfile});
-    bool parsingSuccess = parser->parseFromFile(wtspath.c_str(), static_cast<int>(gLogger.getReportableSeverity()));
-    if (!parsingSuccess) throw std::runtime_error{"Failed to parse model"};
+    bool status = parser->parseFromFile(wtspath.c_str(), static_cast<int>(gLogger.getReportableSeverity()));
+    if (!status) throw std::runtime_error{"Failed to parse model"};
     // Attach a softmax layer to the end of the network.
     auto softmax = network->addSoftMax(*network->getOutput(0));
     // Set softmax axis to 1 since network output has shape [1, 10] in full dims mode
@@ -59,10 +66,10 @@ bool DynamicReshape::buildPredictionEngine(const uniptr<nvinfer1::IBuilder>& bui
     network->unmarkOutput(*network->getOutput(0));
     network->markOutput(*softmax->getOutput(0));
     // Get information about the inputs/outputs directly from the model.
-    mPredictionInputDims = network->getInput(0)->getDimensions();
-    mPredictionOutputDims = network->getOutput(0)->getDimensions();
+    predindims = network->getInput(0)->getDimensions();
+    predoutdims = network->getOutput(0)->getDimensions();
     // Create a builder config
-    auto config = makeunique(builder->createBuilderConfig());
+    auto config = uniptr<IBuilderConfig>(builder->createBuilderConfig());
     config->setMaxWorkspaceSize(16_MiB);
     if (params.fp16) config->setFlag(BuilderFlag::kFP16);
     if (params.int8)
@@ -70,57 +77,58 @@ bool DynamicReshape::buildPredictionEngine(const uniptr<nvinfer1::IBuilder>& bui
         config->setFlag(BuilderFlag::kINT8);
         samplesCommon::setAllTensorScales(network.get(), 127.0f, 127.0f);
     }
-    mPredictionEngine = makeunique(builder->buildEngineWithConfig(*network, *config));
+    predengine = uniptr<ICudaEngine>(builder->buildEngineWithConfig(*network, *config));
 }
 
 
 bool DynamicReshape::prepare()
 {
-    mPreprocessorContext = makeunique(mPreprocessorEngine->createExecutionContext());
-    mPredictionContext = makeunique(mPredictionEngine->createExecutionContext());
-    mPredictionInput.resize(mPredictionInputDims);
-    mOutput.hostBuffer.resize(mPredictionOutputDims);
-    mOutput.deviceBuffer.resize(mPredictionOutputDims);
+    proccontext = uniptr<IExecutionContext>(procengine->createExecutionContext());
+    predcontext = uniptr<IExecutionContext>(predengine->createExecutionContext());
+    predinput.resize(predindims);
+    output.hostBuffer.resize(predoutdims);
+    output.deviceBuffer.resize(predoutdims);
 }
 
 
 bool DynamicReshape::infer()
 {
-    std::random_device rd{};
-    std::default_random_engine generator{rd()};
-    std::uniform_int_distribution<int> digitDistribution{0, 9};
+    random_device rd{};
+    default_random_engine generator{rd()};
+    uniform_int_distribution<int> digitDistribution{0, 9};
     int digit = digitDistribution(generator);
-    Dims inputDims = loadPGMFile(joinpath({params.datadir, to_string(digit)+".pgm"}));
-    mInput.deviceBuffer.resize(inputDims);
-    CHECK(cudaMemcpy(mInput.deviceBuffer.data(), mInput.hostBuffer.data(), mInput.hostBuffer.nbBytes(), cudaMemcpyHostToDevice));
+    string impath = joinpath({params.datadir, to_string(digit)+".pgm"});
+    Dims indims = preprocess(impath);
+    input.deviceBuffer.resize(indims);
+    cudaMemcpy(input.deviceBuffer.data(), input.hostBuffer.data(),
+               input.hostBuffer.nbBytes(), cudaMemcpyHostToDevice);
     // Set the input size for the preprocessor
-    mPreprocessorContext->setBindingDimensions(0, inputDims);
+    proccontext->setBindingDimensions(0, indims);
     // We can only run inference once all dynamic input shapes have been specified.
-    if (!mPreprocessorContext->allInputDimensionsSpecified()) return false;
+    if (!proccontext->allInputDimensionsSpecified()) return false;
     // Run the preprocessor to resize the input to the correct shape
-    std::vector<void*> preprocessorBindings = {mInput.deviceBuffer.data(), mPredictionInput.data()};
-    // For engines using full dims, we can use executeV2, which does not include a separate batch size parameter.
-    bool status = mPreprocessorContext->executeV2(preprocessorBindings.data());
-    if (!status) return false;
+    vector<void*> procbinds = {input.deviceBuffer.data(), predinput.data()};
+    // For engines using full dims, we can use executeV2,
+    // which does not include a separate batch size parameter.
+    if (!proccontext->executeV2(procbinds.data())) return false;
     // Next, run the model to generate a prediction.
-    std::vector<void*> predicitonBindings = {mPredictionInput.data(), mOutput.deviceBuffer.data()};
-    status = mPredictionContext->executeV2(predicitonBindings.data());
-    if (!status) return false;
+    vector<void*> predbinds = {predinput.data(), output.deviceBuffer.data()};
+    if (!predcontext->executeV2(predbinds.data())) return false;
     // Copy the outputs back to the host and verify the output.
-    CHECK(cudaMemcpy(mOutput.hostBuffer.data(), mOutput.deviceBuffer.data(), mOutput.deviceBuffer.nbBytes(), cudaMemcpyDeviceToHost));
-    return validateOutput(digit);
+    cudaMemcpy(output.hostBuffer.data(), output.deviceBuffer.data(),
+               output.deviceBuffer.nbBytes(), cudaMemcpyDeviceToHost);
+    return postpreocess(digit);
 }
 
-Dims DynamicReshape::loadPGMFile(const string& fileName)
+Dims DynamicReshape::preprocess(const string &filepath)
 {
-    ifstream infile(fileName, std::ifstream::binary);
-    assert(infile.is_open() && "Attempting to read from a file that is not open.");
+    ifstream infile(filepath, ifstream::binary);
     string magic;
     int h, w, max;
     infile >> magic >> h >> w >> max;
     infile.seekg(1, infile.cur);
-    Dims4 inputDims{1, 1, h, w};
-    size_t vol = samplesCommon::volume(inputDims);
+    Dims4 indims{1, 1, h, w};
+    size_t vol = samplesCommon::volume(indims);
     vector<uint8_t> fileData(vol);
     infile.read(reinterpret_cast<char*>(fileData.data()), vol);
     gLogInfo << "Input:\n";
@@ -128,26 +136,25 @@ Dims DynamicReshape::loadPGMFile(const string& fileName)
         gLogInfo << (" .:-=+*#%@"[fileData[i] / 26]) << (((i + 1) % w) ? "" : "\n");
     gLogInfo << std::endl;
     // Normalize and copy to the host buffer.
-    mInput.hostBuffer.resize(inputDims);
-    float* hostDataBuffer = static_cast<float*>(mInput.hostBuffer.data());
-    std::transform(fileData.begin(), fileData.end(), hostDataBuffer, [](uint8_t x) { return 1.0 - static_cast<float>(x / 255.0); });
-    return inputDims;
+    input.hostBuffer.resize(indims);
+    float* hostDataBuffer = static_cast<float*>(input.hostBuffer.data());
+    transform(fileData.begin(), fileData.end(), hostDataBuffer,
+              [](uint8_t x) { return 1.0 - static_cast<float>(x / 255.0); });
+    return indims;
 }
 
 
-bool DynamicReshape::validateOutput(int digit)
+bool DynamicReshape::postpreocess(int digit)
 {
-    const float* bufRaw = static_cast<const float*>(mOutput.hostBuffer.data());
-    std::vector<float> prob(bufRaw, bufRaw + mOutput.hostBuffer.size());
-
-    int curIndex{0};
+    const auto* rawbuf = static_cast<const float*>(output.hostBuffer.data());
+    vector<float> prob(rawbuf, rawbuf+output.hostBuffer.size());
+    int idx{0};
     for (const auto& elem : prob)
     {
-        gLogInfo << " Prob " << curIndex << "  " << std::fixed << std::setw(5) << std::setprecision(4) << elem << " "
-                 << "Class " << curIndex << ": " << std::string(int(std::floor(elem*10+0.5f)), '*') << endl;
-        ++curIndex;
+        gLogInfo << " Prob " << idx << "  " << fixed << setw(5) << setprecision(4) << elem << " "
+                 << "Class " << idx << ": " << string(int(floor(elem*10+0.5f)), '*') << endl;
+        ++idx;
     }
-
-    int predictedDigit = std::max_element(prob.begin(), prob.end()) - prob.begin();
-    return digit == predictedDigit;
+    int predict = max_element(prob.begin(), prob.end())-prob.begin();
+    return digit == predict;
 }

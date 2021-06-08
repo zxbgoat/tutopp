@@ -9,13 +9,14 @@
 
 struct MNISTParams
 {
+    string applic;
     int inh, inw;
     int outsize;
     bool fp16, int8;
     string weightfile;
     string meansproto;
-    vector<string> innames;
-    vector<string> outnames;
+    string inname;
+    string outname;
     int batchsize, dlacore;
     string datadir;
 };
@@ -64,35 +65,28 @@ private:
 class DynamicReshape
 {
 public:
-    DynamicReshape(MNISTParams  params): params(std::move(params)) {}
-
+    explicit DynamicReshape(MNISTParams  params);
     bool build();
     bool prepare();
     bool infer();
 
 private:
-    bool buildPreprocessorEngine(const uniptr<nvinfer1::IBuilder>& builder);
-    bool buildPredictionEngine(const uniptr<nvinfer1::IBuilder>& builder);
-    Dims loadPGMFile(const string& fileName);
-    bool validateOutput(int digit);
-
-    template <typename T> uniptr<T> makeunique(T* t)
-    {
-        if (!t) throw std::runtime_error{"Failed to create TensorRT object"};
-        return uniptr<T>{t};
-    }
+    bool buildproc(const uniptr<IBuilder>& builder);
+    bool buildpred(const uniptr<IBuilder>& builder);
+    Dims preprocess(const string& filepath);
+    bool postpreocess(int digit);
 
 private:
     MNISTParams params;
-    nvinfer1::Dims mPredictionInputDims;
-    nvinfer1::Dims mPredictionOutputDims;
-    uniptr<nvinfer1::ICudaEngine> mPreprocessorEngine{nullptr};
-    uniptr<nvinfer1::ICudaEngine> mPredictionEngine{nullptr};
-    uniptr<nvinfer1::IExecutionContext> mPreprocessorContext{nullptr};
-    uniptr<nvinfer1::IExecutionContext> mPredictionContext{nullptr};
-    samplesCommon::ManagedBuffer mInput{};
-    samplesCommon::DeviceBuffer mPredictionInput{};
-    samplesCommon::ManagedBuffer mOutput{};
+    nvinfer1::Dims predindims;
+    nvinfer1::Dims predoutdims;
+    uniptr<ICudaEngine> procengine{nullptr};
+    uniptr<ICudaEngine> predengine{nullptr};
+    uniptr<IExecutionContext> proccontext{nullptr};
+    uniptr<IExecutionContext> predcontext{nullptr};
+    samplesCommon::ManagedBuffer input{};
+    samplesCommon::DeviceBuffer predinput{};
+    samplesCommon::ManagedBuffer output{};
 };
 
 

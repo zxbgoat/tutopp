@@ -2,17 +2,19 @@
 // Created by tesla on 2021/6/6.
 //
 
+#include "util.h"
 #include "mnist.h"
 
 
 MNISTParams initparams(const cmdparser& parser)
 {
     MNISTParams params;
+    params.applic = parser.get<string>("app");
     params.datadir = parser.get<string>("data");
     params.weightfile = parser.get<string>("wts");
     params.meansproto = parser.get<string>("proto");
-    params.innames.emplace_back("Input3");
-    params.outnames.emplace_back("Plus214_Output_0");
+    params.inname = "Input3";
+    params.outname = "Plus214_Output_0";
     params.batchsize = parser.get<int>("batch");
     params.dlacore = parser.get<int>("dla");
     params.outsize = parser.get<int>("out");
@@ -27,7 +29,7 @@ MNISTParams initparams(const cmdparser& parser)
 int main(int argc, char** argv)
 {
     cmdparser parser;
-    parser.add<string>("app", 'a', "app name", true);
+    parser.add<string>("app", 'a', "app name", false, "dynashape");
     parser.add<string>("data", 'd', "data dir", false, "data/mnist");
     parser.add<string>("wts", 't', "weights file", false, "mnist.onnx");
     parser.add<string>("proto", 'p', "means proto", false, "");
@@ -40,6 +42,7 @@ int main(int argc, char** argv)
     parser.add<bool>("int8", 'i', "run in int8", false, true);
     parser.parse(argc, argv);
     MNISTParams params = initparams(parser);
+    cout << params << endl;
     auto test = Logger::defineTest("dynareshape", argc, argv);
     Logger::reportTestStart(test);
     DynamicReshape dynareshape(params);
