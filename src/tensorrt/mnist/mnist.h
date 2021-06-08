@@ -54,8 +54,8 @@ public:
 
 protected:
     void constructNetwork(uniptr<IBuilder>& builder, uniptr<ICaffeParser>& parser, uniptr<INetworkDefinition>& network);
-    bool processInput(const BufferManager& buffers, const string& inputTensorName, int inputFileIdx) const;
-    bool verifyOutput(const BufferManager& buffers, const string& outputTensorName, int groundTruthDigit) const;
+    bool preprocess(const BufferManager& buffers, const string& inname, int digit) const;
+    bool postprocess(const BufferManager& buffers, const string& outname, int digit) const;
 
 private:
     shared_ptr<ICudaEngine> engine{nullptr};

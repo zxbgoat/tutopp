@@ -51,9 +51,14 @@ using nvinfer1::INetworkDefinition;
 using nvinfer1::IBuilderConfig;
 using nvinfer1::ICudaEngine;
 using nvinfer1::IExecutionContext;
+using nvinfer1::IHostMemory;
+using nvinfer1::IRuntime;
+using nvinfer1::createInferRuntime;
 
 using nvcaffeparser1::ICaffeParser;
 using nvcaffeparser1::IBinaryProtoBlob;
+using nvcaffeparser1::createCaffeParser;
+using nvcaffeparser1::IBlobNameToTensor;
 
 using cmdparser = cmdline::parser;
 
