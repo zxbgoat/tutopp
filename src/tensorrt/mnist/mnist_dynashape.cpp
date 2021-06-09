@@ -93,6 +93,11 @@ bool DynamicReshape::prepare()
 
 bool DynamicReshape::infer()
 {
+    proccontext = uniptr<IExecutionContext>(procengine->createExecutionContext());
+    predcontext = uniptr<IExecutionContext>(predengine->createExecutionContext());
+    predinput.resize(predindims);
+    output.hostBuffer.resize(predoutdims);
+    output.deviceBuffer.resize(predoutdims);
     random_device rd{};
     default_random_engine generator{rd()};
     uniform_int_distribution<int> digitDistribution{0, 9};

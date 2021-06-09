@@ -4,6 +4,7 @@
 
 #include "util.h"
 #include "mnist.h"
+#include "factory.h"
 
 
 PluginMNIST::PluginMNIST(const MNISTParams &params) { this->params = params; }
@@ -129,11 +130,7 @@ bool PluginMNIST::postprocess(const BufferManager &buffers, const string &outnam
     const int kDIGITS = 10;
     for (int i = 0; i < kDIGITS; i++)
     {
-        if (val < prob[i])
-        {
-            val = prob[i];
-            idx = i;
-        }
+        if (val < prob[i]) { val = prob[i]; idx = i; }
         gLogInfo << i << ": " << std::string(int(std::floor(prob[i] * 10 + 0.5f)), '*') << "\n";
     }
     gLogInfo << std::endl;
