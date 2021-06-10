@@ -5,6 +5,8 @@
 #ifndef TUTO_ZTEST_H
 #define TUTO_ZTEST_H
 
+#include <stdio.h>
+
 #define EXPECT(a, cmp, b) \
 {                         \
    if (!((a) cmp (b)))    \

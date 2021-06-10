@@ -3,3 +3,9 @@
 //
 
 #include "ztest.h"
+
+
+int main()
+{
+    printf();
+}
