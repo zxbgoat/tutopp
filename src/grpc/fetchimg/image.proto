@@ -1,0 +1,36 @@
+syntax = "proto3";
+package SendImage;
+
+// The greeting service definition.
+service ImageServer
+{
+  rpc GetImage (GetImageRequest) returns (GetImageReply) {}
+}
+
+// The request message containing the user's name.
+message GetImageRequest
+{
+  string cameraid=1;
+  string lastindex = 2;
+  uint64 request_time=3;
+  enum type
+  {
+      async = 0;
+      block = 1;
+  }
+  type responsetype=4;
+}
+
+// The response message containing the greetings
+message GetImageReply
+{
+  bool succeed=1;
+  string cameraid=2;
+  string index = 3;
+  uint64 response_time=4;
+  bytes picture = 5;
+  int32 rows = 6;
+  int32 cols = 7;
+  int64 size = 8;
+  string refer = 9;
+}
