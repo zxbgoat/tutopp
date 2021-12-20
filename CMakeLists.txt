@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.17)
 # project(tuto CUDA CXX)
 project(tuto CXX)
 
+# local
+include_directories(${PROJECT_SOURCE_DIR}/include)
+
 # tensorrt
 include_directories(/usr/local/tensorrt/include
                     /usr/local/tensorrt/samples/common)
