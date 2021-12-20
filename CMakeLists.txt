@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.17)
-project(tuto CUDA CXX)
+# project(tuto CUDA CXX)
+project(tuto CXX)
 
 # tensorrt
 include_directories(/usr/local/tensorrt/include
@@ -18,4 +19,5 @@ link_directories(/usr/local/cuda/lib64)
 # add_subdirectory(src/cuda)
 # add_subdirectory(source/tensorrt/mnistint8)
 # add_subdirectory(source/utils/registry)
-add_subdirectory(source/torch)
+# add_subdirectory(source/torch)
+add_subdirectory(source/design-pattern)
